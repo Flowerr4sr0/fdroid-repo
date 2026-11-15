@@ -1,0 +1,49 @@
+name: Update F-Droid Repo
+
+on:
+  push:
+    paths:
+      - 'repo/*.apk'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python & Java
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Restore F-Droid config & keystore
+        run: |
+          echo "${{ secrets.FDROID_CONFIG_YML }}" > config.yml
+          echo "${{ secrets.FDROID_KEYSTORE_BASE64 }}" | base64 -d > keystore.p12
+          chmod 600 config.yml keystore.p12
+
+      - name: Install fdroidserver & generate index
+        run: |
+          pip install fdroidserver
+          fdroid update --create-metadata --use-date-from-apk
+
+      - name: Deploy repo to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./repo
+          destination_dir: repo
+          keep_files: true
+          
